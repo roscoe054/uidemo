@@ -21,18 +21,6 @@ class CalendarHeader extends Component {
     }
 }
 
-class MonthHeader extends Component {
-    render() {
-        const {year, month} = this.props
-
-        return (
-            <View style={styles.monthHeader}>
-                <Text style={styles.monthHeaderText}>{year}年{month + 1}月</Text>
-            </View>
-        )
-    }
-}
-
 class MonthBodyCell extends Component {
     render() {
         const {dayInfo, onPress} = this.props
@@ -129,68 +117,69 @@ class Calendar extends Component {
     constructor(props) {
         super(props)
 
-        let {startTime, endTime} = props
+        this.state = {
+            dataSource: new ListView.DataSource({
+                rowHasChanged: (r1, r2) => r1 !== r2,
+                sectionHeaderHasChanged: (s1, s2) => s1 !== s2
+            })
+        }
+    }
+
+    componentWillMount() {
+        let {startTime, endTime} = this.props
         startTime = moment.isMoment(startTime) ? startTime : moment(startTime)
         endTime = moment.isMoment(endTime) ? endTime : moment(endTime)
 
         // generate months
-        let months = [],
-            stickyHeaderIndices = []
+        let months = {}
 
         while(endTime.isSameOrAfter(startTime, 'day')){
-            months = [
-                ...months,
-                {
-                    type: 'header',
-                    year: startTime.year(),
-                    month: startTime.month()
-                },
-                {
-                    type: 'body',
-                    year: startTime.year(),
-                    month: startTime.month()
-                }
-            ]
-            stickyHeaderIndices = [
-                ...stickyHeaderIndices,
-                stickyHeaderIndices.length * 2
-            ]
+            const year = startTime.year(),
+                month = startTime.month(),
+                date = year + '年' + (month + 1) + '月'
+
+            months[date] = {
+                date: year + "," + month
+            }
             startTime = startTime.add(1, 'month')
         }
 
-        var ds = new ListView.DataSource({rowHasChanged: (r1, r2) => r1 !== r2});
-
-        this.state = {
-            dataSource: ds.cloneWithRows(months),
-            stickyHeaderIndices: stickyHeaderIndices
-        }
+        this.setState({
+            dataSource: this.state.dataSource.cloneWithRowsAndSections(months),
+            loaded: true
+        })
     }
 
     render() {
-        console.log(this.state.stickyHeaderIndices);
         return (
             <View style={styles.container}>
                 <CalendarHeader />
                 <ListView
-                    initialListSize={4}
+                    initialListSize={2}
                     showsVerticalScrollIndicator={false}
                     dataSource={this.state.dataSource}
                     renderSectionHeader={this.renderSectionHeader}
-                    renderRow={(monthItem) =>
-                        monthItem.type === 'header'
-                        ? <MonthHeader year={monthItem.year} month={monthItem.month}/>
-                        : <MonthBody year={monthItem.year} month={monthItem.month} {...this.props}/>
-                    }
+                    renderRow={this.renderRow.bind(this)}
                 />
             </View>
         )
     }
 
-    renderSectionHeader(sectionData, sectionID) {
-        console.log(sectionData);
+    renderRow(rowData) {
+        const year = Number(rowData.split(',')[0]),
+            month = Number(rowData.split(',')[1])
+
         return (
-            <View style={styles.section}>
-                <Text style={styles.sectionText}>{sectionID}</Text>
+            <View>
+                <MonthBody year={year} month={month} {...this.props}/>
+            </View>
+        );
+    }
+
+    renderSectionHeader(sectionData, sectionID) {
+        return (
+            <View style={styles.monthHeader}>
+                <Text style={styles.monthHeaderText}>{sectionID}</Text>
             </View>
         )
     }
@@ -237,6 +226,7 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         borderBottomWidth: 1 / PixelRatio.get(),
         borderBottomColor: '#dce1e6',
+        backgroundColor: '#fff',
     },
     monthHeaderText: {
         fontSize: 18,
